@@ -1,63 +1,72 @@
-# bb-nfs
-Building block for NFS
+# General
 
+## Deployment type
 
-# Based on:
+Docker
 
+## Image
+
+Based on a Docker image on Docker Hub:
+
+- https://hub.docker.com/r/itsthenetwork/nfs-server-alpine
 - https://github.com/sjiveson/nfs-server-alpine
-- https://hub.docker.com/r/digitbrain/nfs:latest
 
-## Overview
+## Licence
 
-When run, this container will make whatever directory is specified by the environment variable SHARED_DIRECTORY available to NFS v4 clients.
+GPL-2.0 License
 
-`docker run -d --name nfs --privileged -v /some/where/fileshare:/nfsshare -e SHARED_DIRECTORY=/nfsshare digitbrain/bb-nfs:latest`
+## Version
 
-Add `--net=host` or `-p 2049:2049` to make the shares externally accessible via the host networking stack. This isn't necessary if using [Rancher](https://rancher.com/) or linking containers in some other way.
+NFS utils 2.5.2
 
-Adding `-e READ_ONLY` will cause the exports file to contain `ro` instead of `rw`, allowing only read access by clients.
+## Description
 
-Adding `-e SYNC=true` will cause the exports file to contain `sync` instead of `async`, enabling synchronous mode. Check the exports man page for more information: https://linux.die.net/man/5/exports.
+NFS, or Network File System is a distributed file system protocol allows a user on a client computer to access files over a network in the same way they would access a local storage file. Because it is an open standard, anyone can implement the protocol. NFS started in-system as an experiment but the second version was publicly released after the initial success.
 
-Adding `-e PERMITTED="10.11.99.*"` will permit only hosts with an IP address starting 10.11.99 to mount the file share.
+# Deployment
 
-Due to the `fsid=0` parameter set in the **/etc/exports file**, there's no need to specify the folder name when mounting from a client. For example, this works fine even though the folder being mounted and shared is /nfsshare:
+General example:
 
-`sudo mount -v 10.11.12.101:/ /some/where/here`
+```sh
+docker run -d --rm \
+        --name nfs \
+        --privileged \
+        -e SHARED_DIRECTORY=/nfsshare \
+        -p 2049:2049 \
+        -v $HOME/nfs/data:/nfsshare \
+        digitbrain/bb-nfs:latest
+```
 
-To be a little more explicit:
+## Parameters
 
-`sudo mount -v -o vers=4,loud 10.11.12.101:/ /some/where/here`
+|Name|Value|Description|
+|-|-|-|
+|Ports|`-p 2049:2049`|NFS server|
+|Env|`-e SHARED_DIRECTORY=/nfsshare`|This image can be used to export and share multiple directories. Be aware that NFSv4 dictates that the additional shared directories are subdirectories of the root share specified by `SHARED_DIRECTORY`.|
+|Env|`-e READ_ONLY`|Will cause the exports file to contain ro instead of rw, allowing only read access by clients.|
+|Env|`-e SYNC=true`|Will cause the exports file to contain sync instead of async, enabling synchronous mode. Check the exports man page for more information: https://linux.die.net/man/5/exports.|
+|Env|`-e PERMITTED="10.11.99.*"`| Will permit only hosts with an IP address starting 10.11.99 to mount the file share.|
+|Volumes|`-v $HOME/nfs/data:/nfsshare`|Persist NFS data|
 
-To _unmount_:
 
-`sudo umount /some/where/here`
+<br>
 
-The /etc/exports file contains these parameters unless modified by the environment variables listed above:
+## Testing
 
-`*(rw,fsid=0,async,no_subtree_check,no_auth_nlm,insecure,no_root_squash)`
+```sh
+# Mount storage
+sudo mount -v <IP>:/ /mnt/one
+sudo mount -v <IP>:/another /mnt/two
 
-Note that the `showmount` command won't work against the server as rpcbind isn't running.
+# Unmount storage
+sudo umount /some/where/here
+```
+
+## Miscellaneous
 
 ### Privileged Mode
 
 You'll note above with the `docker run` command that privileged mode is required. Yes, this is a security risk but an unavoidable one it seems.
-
-#### Docker Compose
-
-When using Docker Compose you can specify privileged mode like so:
-
-```
-privileged: true
-```
-
-To use capabilities instead:
-
-```
-cap_add:
-  - SYS_ADMIN
-  - SETPCAP
-```
 
 ### Multiple Shares
 
@@ -66,8 +75,16 @@ This image can be used to export and share multiple directories with a little mo
 > Note its far easier to volume mount multiple directories as subdirectories of the root/first and share the root.
 
 To share multiple directories you'll need to mount additional volumes and specify additional environment variables in your docker run command. Here's an example:
-```
-docker run -d --name nfs --privileged -v /some/where/fileshare:/nfsshare -v /some/where/else:/nfsshare/another -e SHARED_DIRECTORY=/nfsshare -e SHARED_DIRECTORY_2=/nfsshare/another digitbrain/nfs:latest:latest
+
+```sh
+docker run -d --rm \
+        --name nfs \
+        --privileged \
+        -v /some/where/fileshare:/nfsshare \
+        -v /some/where/else:/nfsshare/another \
+        -e SHARED_DIRECTORY=/nfsshare \
+        -e SHARED_DIRECTORY_2=/nfsshare/another \
+        digitbrain/nfs:latest:latest
 ```
 
 You should then modify the **nfsd.sh** file to process the extra environment variables and add entries to the exports file. I've already included a working example to get you started:

@@ -32,6 +32,6 @@
             PS1="${COLORIZED_PROMPT}\[\e]0;\u@\h:\w\007\]" ;;
         linux )
             PS1="${COLORIZED_PROMPT}" ;;
-        * ) 
+        * )
             PS1="\u@\h:\w${_p} " ;;
     esac
